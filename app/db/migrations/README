@@ -1,0 +1,42 @@
+Issue2PR database migrations (Alembic, async)
+=============================================
+
+This directory holds the Alembic migration environment. It is wired to the
+async engine built from ``settings.database_url`` and targets the ORM models in
+``app/db/models.py`` (``Base.metadata``).
+
+Prerequisites
+-------------
+Install the server extras (includes SQLAlchemy, asyncpg, and Alembic)::
+
+    pip install -e ".[server]"
+
+A reachable PostgreSQL instance matching ``DATABASE_URL`` in your ``.env`` is
+required for online migrations, e.g.::
+
+    postgresql+asyncpg://issue2pr:issue2pr@localhost:5432/issue2pr
+
+Common commands
+---------------
+Autogenerate a new revision by diffing the DB against the models::
+
+    alembic revision --autogenerate -m "describe change"
+
+Apply migrations up to the latest revision::
+
+    alembic upgrade head
+
+Roll back one revision::
+
+    alembic downgrade -1
+
+Notes
+-----
+* The database URL is injected at runtime from ``Settings`` in ``env.py``; you
+  do not need to (and should not) hardcode credentials in ``alembic.ini``.
+* ``compare_type=True`` is enabled so column type changes are detected during
+  autogenerate.
+* Generated revision scripts are written to the ``versions/`` subdirectory.
+* For local development without Postgres, ``app.db.session.create_all()`` can
+  create the schema directly from the models (not a substitute for migrations
+  in production).

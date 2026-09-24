@@ -1,0 +1,106 @@
+# Issue2PR full-stack composition.
+#
+# Services:
+#   api        - FastAPI webhook receiver (app.main:app) on :8000
+#   worker     - background job consumer (app.workers) reading the Redis queue
+#   redis      - job queue / broker
+#   db         - Postgres run/issue history store
+#   dashboard  - Gradio run-history viewer on :7860
+#   sandbox    - hardened test-runner image; built for reference (used by
+#                DockerRunner at runtime, not run as a long-lived service)
+#
+# Configuration comes from the project .env file (see .env.example). Copy it
+# and fill in secrets before `docker compose up`.
+#
+#   cp .env.example .env
+#   docker compose up --build
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    env_file: .env
+    environment:
+      # Point infra URLs at the compose network services (override .env).
+      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql+asyncpg://issue2pr:issue2pr@db:5432/issue2pr
+    ports:
+      - "8000:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql+asyncpg://issue2pr:issue2pr@db:5432/issue2pr
+    command: ["python", "-m", "app.workers"]
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: issue2pr
+      POSTGRES_PASSWORD: issue2pr
+      POSTGRES_DB: issue2pr
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U issue2pr"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    env_file: .env
+    # The dashboard extra (gradio) is not in the API image; install it and mount
+    # the project so the viewer can read the local app.db run history.
+    command: ["sh", "-c", "pip install gradio && python -m dashboard.app"]
+    volumes:
+      - ./dashboard:/app/dashboard:ro
+      - ./app.db:/app/app.db
+    ports:
+      - "7860:7860"
+    restart: unless-stopped
+
+  # Built for reference: the hardened image DockerRunner executes commands in
+  # when SANDBOX_BACKEND=docker. It is not a long-running service, so it is put
+  # behind a profile and does not start with the default `up`.
+  sandbox:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.sandbox
+    image: issue2pr-sandbox
+    profiles: ["build-only"]
+    command: ["python", "--version"]
+
+volumes:
+  pgdata:

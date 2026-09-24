@@ -1,0 +1,68 @@
+# Issue2PR — PRODUCTION composition.
+#
+# Differences from docker-compose.yml (the local/dev stack):
+#   * No local Postgres. The database is Supabase (managed Postgres). Set
+#     DATABASE_URL in .env to the Supabase "Session pooler" connection string
+#     with the +asyncpg driver, and DATABASE_SSL=true (DATABASE_PGBOUNCER=true
+#     if using the transaction-mode pooler on port 6543).
+#   * Redis runs as a container here, but you can instead point REDIS_URL at a
+#     managed Redis (Upstash / Redis Cloud, use a rediss:// URL) and delete the
+#     redis service.
+#
+# Usage:
+#   cp .env.example .env      # fill in Supabase DATABASE_URL + secrets
+#   docker compose -f docker-compose.prod.yml up --build -d
+#
+# Run the one-time schema creation against Supabase before first start:
+#   docker compose -f docker-compose.prod.yml run --rm api python -m app.cli initdb
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    env_file: .env
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      # DATABASE_URL comes straight from .env (Supabase). Do not override it here.
+      SANDBOX_BACKEND: ${SANDBOX_BACKEND:-local}
+    ports:
+      - "8000:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    env_file: .env
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    command: ["python", "-m", "app.workers"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    env_file: .env
+    command: ["sh", "-c", "pip install gradio && python -m dashboard.app"]
+    volumes:
+      - ./dashboard:/app/dashboard:ro
+    ports:
+      - "7860:7860"
+    restart: unless-stopped

@@ -1,0 +1,15 @@
+[project]
+name = "mathlib-sample"
+version = "0.0.1"
+description = "Sample buggy project used as an Issue2PR agent fixture."
+requires-python = ">=3.11"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["mathlib*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,36 @@
+# Issue2PR sandbox image: a minimal, hardened test-runner environment.
+#
+# This image is what DockerRunner (app/sandbox/runner.py) executes agent
+# commands (pytest / ruff) inside when SANDBOX_BACKEND=docker. It ships only a
+# Python toolchain plus the test/lint tools -- no application source and no
+# network tooling.
+#
+# Runtime hardening (network isolation, read-only root, cpu/mem/pids caps) is
+# applied by the CALLER at `docker run` time (see DockerRunner._docker_cmd and
+# docker-compose). This image is built to cooperate with those flags:
+#   * runs as a non-root user,
+#   * expects the workspace bind-mounted at /workspace,
+#   * writes only to /workspace and /tmp (tmpfs), so --read-only is friendly.
+#
+# Build:  docker build -f docker/Dockerfile.sandbox -t issue2pr-sandbox .
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+# Only the tools needed to run and lint a project's test suite.
+RUN pip install --upgrade pip \
+    && pip install pytest ruff
+
+# Non-root user; /workspace is the bind-mount target for the repo under test.
+RUN useradd --create-home --uid 1000 sandbox \
+    && mkdir -p /workspace \
+    && chown -R sandbox:sandbox /workspace
+USER sandbox
+
+WORKDIR /workspace
+
+# Default to a no-op shell; the runner overrides CMD with the actual command
+# vector (e.g. ["python", "-m", "pytest", "-q"]).
+CMD ["python", "--version"]

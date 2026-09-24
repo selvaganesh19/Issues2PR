@@ -1,0 +1,86 @@
+# Reusable Issue2PR workflow. Other repos call this via `uses:` -- they do NOT
+# copy it. See the "Use this on your repo" section of the README.
+#
+# Callers pass their own secrets with `secrets: inherit`.
+
+name: issue2pr agent (reusable)
+on:
+  workflow_call:
+    inputs:
+      task:
+        description: "Instruction given to the agent about the pushed code."
+        required: false
+        type: string
+        default: "Review and improve ONLY the code changed in this push. Find bugs, fix them, keep existing behavior."
+    secrets:
+      GROQ_API_KEY:       { required: true }
+      OPENROUTER_API_KEY: { required: false }
+      MAIL_USERNAME:      { required: false }
+      MAIL_PASSWORD:      { required: false }
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  agent:
+    if: "!contains(github.event.head_commit.message, '[skip agent]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install issue2pr
+        run: pip install "git+https://github.com/${{ github.repository_owner }}/issue2pr.git"
+
+      - name: Agent works on the pushed code
+        id: agent
+        continue-on-error: true
+        env:
+          GROQ_API_KEY:       ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          python -m app.cli fix . "${{ inputs.task }}" 2>&1 | tee run.log
+
+      - name: Build report
+        id: report
+        run: |
+          echo "changed=$(git diff --name-only | wc -l)" >> "$GITHUB_OUTPUT"
+          git diff --stat > diffstat.txt || true
+
+      - name: Email the pusher
+        if: always() && secrets.MAIL_USERNAME != ''
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          from: Issue2PR Agent <${{ secrets.MAIL_USERNAME }}>
+          to: ${{ github.event.head_commit.author.email }}
+          subject: "Agent run on ${{ github.repository }} - ${{ steps.agent.outcome }}"
+          body: |
+            Repo:    ${{ github.repository }}
+            Commit:  ${{ github.sha }}
+            Pusher:  ${{ github.event.head_commit.author.name }}
+            Outcome: ${{ steps.agent.outcome }}   (success = finished, failure = hit a time/budget limit)
+            Files changed by agent: ${{ steps.report.outputs.changed }}
+
+            The agent's summary is in run.log; per-file changes in diffstat.txt.
+            If files were changed, a pull request was opened for review.
+          attachments: run.log,diffstat.txt
+
+      - name: Open PR with the agent's changes
+        if: steps.report.outputs.changed != '0'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: agent/review-${{ github.sha }}
+          title: "Agent review of pushed code (${{ steps.agent.outcome }})"
+          commit-message: "agent: review pushed code [skip agent]"
+          body: "Automated review/fix of ${{ github.sha }}. Outcome: ${{ steps.agent.outcome }}."

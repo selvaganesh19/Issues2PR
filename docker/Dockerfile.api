@@ -1,0 +1,37 @@
+# Issue2PR API image: serves the FastAPI webhook receiver (app.main:app).
+#
+# Build:  docker build -f docker/Dockerfile.api -t issue2pr-api .
+# Run:    docker run --rm -p 8000:8000 --env-file .env issue2pr-api
+#
+# The image installs the "server" extra (FastAPI, uvicorn, redis, sqlalchemy,
+# asyncpg, GitHub App auth deps) and runs uvicorn as a non-root user.
+FROM python:3.11-slim
+
+# System deps: git is required by the agent's git_ops tooling. Kept minimal.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+# Install dependencies first (better layer caching). Copy project metadata and
+# the package, then install the "server" extra.
+COPY pyproject.toml README.md ./
+COPY app ./app
+
+RUN pip install --upgrade pip \
+    && pip install ".[server]"
+
+# Drop privileges: run as a dedicated non-root user.
+RUN useradd --create-home --uid 1000 appuser \
+    && chown -R appuser:appuser /app
+USER appuser
+
+EXPOSE 8000
+
+# app.main:app is the FastAPI application (provided by the server layer).
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
