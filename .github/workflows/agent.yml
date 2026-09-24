@@ -55,8 +55,12 @@ jobs:
       - name: Build report
         id: report
         run: |
-          echo "changed=$(git diff --name-only | wc -l)" >> "$GITHUB_OUTPUT"
-          git diff --stat > diffstat.txt || true
+          # Agent commits its own changes on a new branch, so compare the
+          # agent's HEAD against the commit that triggered this run rather than
+          # inspecting the (clean) working tree.
+          changed=$(git diff --name-only ${{ github.sha }} HEAD | wc -l)
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+          git diff --stat ${{ github.sha }} HEAD > diffstat.txt || true
 
       - name: Email the pusher
         if: always() && env.MAIL_USERNAME != ''
@@ -85,9 +89,15 @@ jobs:
 
       - name: Open PR with the agent's changes
         if: steps.report.outputs.changed != '0'
-        uses: peter-evans/create-pull-request@v6
-        with:
-          branch: agent/review-${{ github.sha }}
-          title: "Agent review of pushed code (${{ steps.agent.outcome }})"
-          commit-message: "agent: review pushed code [skip agent]"
-          body: "Automated review/fix of ${{ github.sha }}. Outcome: ${{ steps.agent.outcome }}."
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          branch="agent/review-${{ github.sha }}"
+          # The agent already committed its fix on the current HEAD; push that
+          # branch and open a PR. peter-evans/create-pull-request only picks up
+          # *uncommitted* working-tree changes, so it saw nothing here.
+          git push --force origin HEAD:"refs/heads/$branch"
+          gh pr create --base "${{ github.ref_name }}" --head "$branch" \
+            --title "Agent review of pushed code (${{ steps.agent.outcome }})" \
+            --body "Automated review/fix of ${{ github.sha }}. Outcome: ${{ steps.agent.outcome }}." \
+            || echo "PR already exists for $branch"
