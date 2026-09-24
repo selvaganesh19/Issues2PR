@@ -35,7 +35,7 @@ PROVIDERS: dict[str, dict] = {
 }
 
 
-def provider_base_url(name: str, settings: "Settings") -> str | None:
+def provider_base_url(name: str, settings: Settings) -> str | None:
     """Resolve the effective base URL for ``name`` given ``settings``."""
     if name == "azure":
         return settings.azure_openai_endpoint
@@ -43,7 +43,7 @@ def provider_base_url(name: str, settings: "Settings") -> str | None:
     return spec["base_url"] if spec else None
 
 
-def _has_key(name: str, settings: "Settings") -> bool:
+def _has_key(name: str, settings: Settings) -> bool:
     """Return True if the API key for provider ``name`` is present."""
     spec = PROVIDERS.get(name)
     if not spec:
@@ -51,7 +51,7 @@ def _has_key(name: str, settings: "Settings") -> bool:
     return bool(getattr(settings, spec["api_key_attr"], None))
 
 
-def provider_order(settings: "Settings") -> list[str]:
+def provider_order(settings: Settings) -> list[str]:
     """Return providers to try, primary first, then any others with keys.
 
     The primary provider (``settings.llm_provider_primary``) always comes first

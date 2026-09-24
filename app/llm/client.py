@@ -116,7 +116,7 @@ def _parse_response(response: Any) -> ChatResult:
 class LLMClient:
     """Chat client that fails over across configured providers."""
 
-    def __init__(self, settings: "Settings") -> None:
+    def __init__(self, settings: Settings) -> None:
         """Store settings; connections are built lazily per ``chat`` call."""
         self.settings = settings
 

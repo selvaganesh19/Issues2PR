@@ -10,9 +10,8 @@ from __future__ import annotations
 import pathlib
 
 from app.agent.loop import run_agent
-
-from tests.conftest import FakeLLM, tool_call
 from app.llm.client import ChatResult, Usage
+from tests.conftest import FakeLLM, tool_call
 
 
 def _seed_buggy_repo(workspace: pathlib.Path) -> None:

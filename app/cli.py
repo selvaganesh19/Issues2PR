@@ -72,7 +72,9 @@ def fix(
 
     workspace = pathlib.Path(repo).expanduser().resolve()
     if not workspace.exists() or not workspace.is_dir():
-        console.print(f"[red]error:[/red] repo path does not exist or is not a directory: {workspace}")
+        console.print(
+            f"[red]error:[/red] repo path does not exist or is not a directory: {workspace}"
+        )
         raise typer.Exit(code=1)
 
     # 1. LLM key gate. Without a key the real agent loop cannot call the model,
@@ -216,7 +218,11 @@ def _make_ctx(workspace: pathlib.Path, settings: Settings):
     from app.sandbox.runner import get_runner
     from app.tools.registry import ToolContext
 
-    return ToolContext(workspace=workspace, runner=get_runner(settings, workspace), settings=settings)
+    return ToolContext(
+        workspace=workspace,
+        runner=get_runner(settings, workspace),
+        settings=settings,
+    )
 
 
 @app.callback()

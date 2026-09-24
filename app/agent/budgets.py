@@ -32,7 +32,7 @@ _APPROX_USD_PER_1M: dict[str, float] = {
 }
 
 
-def estimate_cost(usage: "Usage", model: str) -> float:
+def estimate_cost(usage: Usage, model: str) -> float:
     """Estimate USD cost of a single LLM call. APPROXIMATE — budgeting only.
 
     Uses a blended per-1M-token rate matched by substring against ``model``,

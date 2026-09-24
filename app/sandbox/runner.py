@@ -162,7 +162,7 @@ class DockerRunner:
             )
 
 
-def get_runner(settings: "Settings", workspace: pathlib.Path):
+def get_runner(settings: Settings, workspace: pathlib.Path):
     """Return the runner selected by ``settings.sandbox_backend``.
 
     Defaults to :class:`LocalRunner`. Returns :class:`DockerRunner` when the

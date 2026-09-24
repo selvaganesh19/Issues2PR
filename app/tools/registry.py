@@ -9,8 +9,9 @@ from :mod:`app.sandbox` / :mod:`app.config`).
 from __future__ import annotations
 
 import pathlib
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 
 @dataclass
