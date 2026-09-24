@@ -34,9 +34,17 @@ def _resolve(workspace: pathlib.Path, rel: str) -> pathlib.Path:
     """
     root = pathlib.Path(workspace).resolve()
     rel = (rel or ".").strip()
-    candidate = pathlib.Path(rel)
-    if candidate.is_absolute():
+    # Reject absolute paths under BOTH POSIX and Windows semantics, regardless
+    # of the host OS. On Linux a string like "C:/Windows" is not a PosixPath
+    # absolute, so without the PureWindowsPath check it would be treated as a
+    # relative path and silently allowed -- a cross-platform escape.
+    if (
+        pathlib.PurePosixPath(rel).is_absolute()
+        or pathlib.PureWindowsPath(rel).is_absolute()
+        or pathlib.PureWindowsPath(rel).drive
+    ):
         raise ValueError(f"absolute paths are not allowed: {rel!r}")
+    candidate = pathlib.Path(rel)
     resolved = (root / candidate).resolve()
     # Python 3.9+: is_relative_to guards against '..' traversal and symlinks.
     if resolved != root and not resolved.is_relative_to(root):
