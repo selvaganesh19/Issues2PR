@@ -25,7 +25,7 @@ import time
 from collections import deque
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from app.config import Settings
@@ -261,7 +261,10 @@ class RedisQueue(BaseQueue):
             # no Docker. Great for local dev and integration tests on Windows.
             import fakeredis
 
-            self._redis = fakeredis.FakeRedis(decode_responses=True)
+            # Typed as Any: fakeredis.FakeRedis and redis.Redis share the same
+            # command surface but are unrelated types; Any lets one attribute
+            # hold either without spurious assignment/return-type errors.
+            self._redis: Any = fakeredis.FakeRedis(decode_responses=True)
         else:
             import redis  # imported lazily so the module loads without redis
 

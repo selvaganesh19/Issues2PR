@@ -20,6 +20,8 @@ Security model (mirrors README "Security notes"):
 
 from __future__ import annotations
 
+from typing import Any
+
 import httpx
 
 from app.github.auth import _ACCEPT, _API_VERSION, GITHUB_API
@@ -69,7 +71,7 @@ class GitHubClient:
             "X-GitHub-Api-Version": _API_VERSION,
         }
 
-    def _request(self, method: str, path: str, *, ok: int, **kwargs: object) -> dict:
+    def _request(self, method: str, path: str, *, ok: int, **kwargs: Any) -> dict:
         """Perform a request and return parsed JSON, raising on unexpected status.
 
         Args:
