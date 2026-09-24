@@ -1,19 +1,19 @@
 # Issue2PR — PRODUCTION composition.
 #
 # Differences from docker-compose.yml (the local/dev stack):
-#   * No local Postgres. The database is Supabase (managed Postgres). Set
-#     DATABASE_URL in .env to the Supabase "Session pooler" connection string
-#     with the +asyncpg driver, and DATABASE_SSL=true (DATABASE_PGBOUNCER=true
-#     if using the transaction-mode pooler on port 6543).
+#   * No local Postgres. The database is managed Postgres. Set DATABASE_URL in
+#     .env to your provider's connection-pooler URI with the +asyncpg driver,
+#     and DATABASE_SSL=true (DATABASE_PGBOUNCER=true if using a transaction-mode
+#     pooler on port 6543).
 #   * Redis runs as a container here, but you can instead point REDIS_URL at a
 #     managed Redis (Upstash / Redis Cloud, use a rediss:// URL) and delete the
 #     redis service.
 #
 # Usage:
-#   cp .env.example .env      # fill in Supabase DATABASE_URL + secrets
+#   cp .env.example .env      # fill in DATABASE_URL + secrets
 #   docker compose -f docker-compose.prod.yml up --build -d
 #
-# Run the one-time schema creation against Supabase before first start:
+# Run the one-time schema creation against the database before first start:
 #   docker compose -f docker-compose.prod.yml run --rm api python -m app.cli initdb
 
 services:
@@ -24,7 +24,7 @@ services:
     env_file: .env
     environment:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-      # DATABASE_URL comes straight from .env (Supabase). Do not override it here.
+      # DATABASE_URL comes straight from .env. Do not override it here.
       SANDBOX_BACKEND: ${SANDBOX_BACKEND:-local}
     ports:
       - "8000:8000"

@@ -117,13 +117,13 @@ Docker needed.
   real in-process Redis (the actual `RedisQueue` code path, idempotency +
   backoff included), with no server to install. For a real server later, use
   `redis://…` or a managed `rediss://…` (Upstash / Redis Cloud) URL.
-- **Database → Supabase (managed Postgres).** No local Postgres required; see
-  the Supabase section below.
+- **Database → managed Postgres.** No local Postgres required; see the
+  database section below.
 
 ```bash
 pip install -e ".[server]"
 
-# 1. one-time: create tables on Supabase (reads DATABASE_URL from .env)
+# 1. one-time: create tables (reads DATABASE_URL from .env)
 python -m app.cli initdb
 
 # 2. API (http://127.0.0.1:8000, docs at /docs)
@@ -133,19 +133,18 @@ python -m app.cli serve
 python -m app.cli worker
 ```
 
-## Use Supabase as the database
+## Use managed Postgres as the database
 
-1. In Supabase: **Project Settings → Database → Connection string → URI**, and
-   copy the **Session pooler** string.
+1. From your Postgres provider, copy the **connection-pooler** URI.
 2. Change the driver from `postgresql://` to **`postgresql+asyncpg://`** and put
    it in `.env` as `DATABASE_URL`. Example:
    ```env
-   DATABASE_URL=postgresql+asyncpg://postgres.abcdefgh:YOUR-PW@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+   DATABASE_URL=postgresql+asyncpg://<user>:<pw>@<host>:6543/postgres
    DATABASE_SSL=true
    DATABASE_PGBOUNCER=true
    ```
-   `DATABASE_SSL=true` is required by Supabase. `DATABASE_PGBOUNCER=true` is
-   required when you use the transaction-mode pooler (port `6543`) — it disables
+   `DATABASE_SSL=true` is required by most hosted DBs. `DATABASE_PGBOUNCER=true`
+   is required when you use a transaction-mode pooler (port `6543`) — it disables
    asyncpg prepared-statement caching, which that pooler does not support. If you
    use the direct connection (port `5432`), set `DATABASE_PGBOUNCER=false`.
 3. Create the schema: `python -m app.cli initdb`.
@@ -154,12 +153,12 @@ python -m app.cli worker
 
 Local/dev stack (bundles Postgres + Redis containers): `docker-compose.yml`.
 
-Production stack (`docker-compose.prod.yml`) uses **Supabase** as the database
-(no local Postgres) and a Redis container (or point `REDIS_URL` at managed
-Redis and drop the service):
+Production stack (`docker-compose.prod.yml`) uses **managed Postgres** as the
+database (no local Postgres) and a Redis container (or point `REDIS_URL` at
+managed Redis and drop the service):
 
 ```bash
-cp .env.example .env          # set Supabase DATABASE_URL + secrets
+cp .env.example .env          # set DATABASE_URL + secrets
 docker compose -f docker-compose.prod.yml run --rm api python -m app.cli initdb
 docker compose -f docker-compose.prod.yml up --build -d
 ```
@@ -181,7 +180,7 @@ docker compose -f docker-compose.prod.yml up --build -d
 3. **Queue without Docker:** with `REDIS_URL=fake://local`, run `python -m app.cli worker`
    in one terminal and `python -m app.cli serve` in another; POST a signed
    GitHub `issues` payload to `/webhooks/github` to enqueue a job.
-4. **Supabase persistence:** after `initdb`, run the API and confirm `GET /runs`
+4. **Database persistence:** after `initdb`, run the API and confirm `GET /runs`
    returns stored runs (empty list until the worker records one).
 5. **Eval suite:** `python -m evals.run --suite smoke`.
 

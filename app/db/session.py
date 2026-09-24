@@ -30,9 +30,9 @@ _sessionmaker: async_sessionmaker[AsyncSession] | None = None
 def _build_connect_args(settings: Settings) -> dict:
     """Build asyncpg ``connect_args`` for the configured database.
 
-    * ``database_ssl`` -> require TLS (Supabase and most managed Postgres).
-    * ``database_pgbouncer`` -> disable prepared-statement caching, which the
-      Supabase transaction-mode pooler (port 6543) does not support. We also
+    * ``database_ssl`` -> require TLS (most managed Postgres).
+    * ``database_pgbouncer`` -> disable prepared-statement caching, which a
+      transaction-mode pooler (typically port 6543) does not support. We also
       give each prepared statement a unique name to avoid clashes across pooled
       backends.
     """
@@ -42,18 +42,18 @@ def _build_connect_args(settings: Settings) -> dict:
 
         ca = getattr(settings, "database_ssl_root_cert", "") or ""
         if ca:
-            # Full verification against a pinned CA (e.g. Supabase's prod-ca cert).
+            # Full verification against a pinned CA cert.
             ctx = ssl.create_default_context(cafile=ca)
-            # Supabase's legacy certs omit the RFC-5280 keyUsage extension, which
-            # Python 3.13's default VERIFY_X509_STRICT rejects. Relax only that
-            # pedantic format check; chain verification and hostname checking stay
-            # ON (the peer is still verified against the pinned CA above).
+            # Some managed-Postgres legacy certs omit the RFC-5280 keyUsage
+            # extension, which Python 3.13's default VERIFY_X509_STRICT rejects.
+            # Relax only that pedantic format check; chain verification and
+            # hostname checking stay ON (peer still verified against the CA).
             ctx.verify_flags &= ~ssl.VerifyFlags.VERIFY_X509_STRICT
         else:
-            # Encrypt the wire without verifying the chain. The Supabase pooler
-            # cert chains to a CA absent from the OS trust store, so default
+            # Encrypt the wire without verifying the chain. Some managed pooler
+            # certs chain to a CA absent from the OS trust store, so default
             # verification fails. Guards passive eavesdropping, NOT active MITM.
-            # Set DATABASE_SSL_ROOT_CERT to the Supabase CA path for full verify.
+            # Set DATABASE_SSL_ROOT_CERT to the CA path for full verify.
             ctx = ssl.create_default_context()
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE

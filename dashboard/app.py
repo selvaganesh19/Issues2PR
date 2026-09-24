@@ -40,7 +40,7 @@ def _db_path() -> Path:
 def _pg_url() -> str:
     """Return the configured async Postgres URL, or '' if not Postgres.
 
-    When ``DATABASE_URL`` points at Postgres (e.g. Supabase), the dashboard
+    When ``DATABASE_URL`` points at Postgres, the dashboard
     reads run history straight from that database instead of the local SQLite
     file. Any import/config failure degrades to SQLite silently.
     """
@@ -122,7 +122,7 @@ def load_runs() -> tuple[list[str], list[list], str]:
                 "SELECT id, repo, issue_number, status, cost_usd, created_at "
                 "FROM runs ORDER BY id DESC LIMIT 500"
             )
-            return cols, rows, f"Loaded {len(rows)} run(s) from Postgres (Supabase)."
+            return cols, rows, f"Loaded {len(rows)} run(s) from Postgres."
         except Exception as e:  # noqa: BLE001 - degrade to a message, never crash the UI
             return [], [], f"Postgres read failed: {type(e).__name__}: {e}"
     path = _db_path()
@@ -161,7 +161,7 @@ def load_steps(run_id: str = "") -> tuple[list[str], list[list], str]:
             cols, rows = _load_pg(
                 'SELECT id, run_id, "index", kind FROM steps ORDER BY id DESC LIMIT 2000'
             )
-            return cols, rows, f"Loaded {len(rows)} step(s) from Postgres (Supabase)."
+            return cols, rows, f"Loaded {len(rows)} step(s) from Postgres."
         except Exception as e:  # noqa: BLE001
             return [], [], f"Postgres read failed: {type(e).__name__}: {e}"
     path = _db_path()
@@ -214,7 +214,7 @@ def build_ui():  # type: ignore[no-untyped-def]
         return gr.update(value=rows, headers=headers), status
 
     with gr.Blocks(title="Issue2PR — Run History") as demo:
-        _src = "Postgres (Supabase)" if _pg_url() else f"`{_db_path()}`"
+        _src = "Postgres" if _pg_url() else f"`{_db_path()}`"
         gr.Markdown(
             "# Issue2PR — Run History\n"
             "Read-only viewer over agent run/step history "

@@ -143,9 +143,9 @@ def fix(
 
 @app.command()
 def initdb() -> None:
-    """Create all database tables (Supabase / Postgres) from the ORM models.
+    """Create all database tables (Postgres) from the ORM models.
 
-    Convenience for local/dev setup and first-time Supabase provisioning. Reads
+    Convenience for local/dev setup and first-time DB provisioning. Reads
     ``DATABASE_URL`` (and ``DATABASE_SSL`` / ``DATABASE_PGBOUNCER``) from the
     environment / ``.env``. For production, prefer Alembic migrations.
     """

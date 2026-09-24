@@ -42,20 +42,20 @@ class Settings(BaseSettings):
     # real RedisQueue code path locally with NO Docker and NO server.
     redis_url: str = "redis://localhost:6379/0"
 
-    # database_url: an async SQLAlchemy URL. For Supabase Postgres use the
+    # database_url: an async SQLAlchemy URL. For managed Postgres use the
     # asyncpg driver, e.g.
-    #   postgresql+asyncpg://postgres.<ref>:<pw>@aws-0-<region>.pooler.supabase.com:6543/postgres
-    # (the "Session pooler" connection string, driver swapped to +asyncpg).
+    #   postgresql+asyncpg://<user>:<pw>@<host>:6543/postgres
+    # (a connection-pooler URI with the driver swapped to +asyncpg).
     database_url: str = "postgresql+asyncpg://issue2pr:issue2pr@localhost:5432/issue2pr"
 
-    # Supabase / managed-Postgres connection tuning.
-    #   database_ssl: require TLS (Supabase mandates it). Enable for any hosted DB.
-    #   database_pgbouncer: set True when connecting through Supabase's
-    #     transaction-mode pooler (port 6543). It disables asyncpg prepared-
-    #     statement caching, which pgbouncer transaction pooling does not support.
+    # Managed-Postgres connection tuning.
+    #   database_ssl: require TLS. Enable for any hosted DB.
+    #   database_pgbouncer: set True when connecting through a transaction-mode
+    #     pooler (typically port 6543). It disables asyncpg prepared-statement
+    #     caching, which pgbouncer transaction pooling does not support.
     database_ssl: bool = False
     database_pgbouncer: bool = False
-    #   database_ssl_root_cert: path to the CA cert (Supabase prod-ca). When set,
+    #   database_ssl_root_cert: path to the CA cert. When set,
     #     the TLS chain is fully verified; when empty, the connection is encrypted
     #     but the cert chain is not verified.
     database_ssl_root_cert: str = ""
