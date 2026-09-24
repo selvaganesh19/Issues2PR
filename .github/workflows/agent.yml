@@ -31,6 +31,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Configure git identity
+        run: |
+          git config --global user.name "issue2pr-agent[bot]"
+          git config --global user.email "issue2pr-agent@users.noreply.github.com"
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
