@@ -27,6 +27,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  id-token: write   # mint a GitHub OIDC token so the relay can verify the caller
 
 jobs:
   agent:
@@ -89,6 +90,15 @@ jobs:
               echo "recipient $to is a GitHub noreply address (undeliverable); skipping. Set 'notify_email' to receive mail."
               exit 0 ;;
           esac
+          # Mint a GitHub OIDC token if the caller granted id-token: write. The
+          # relay verifies it to trust the repo/actor without any shared secret.
+          # Empty when the permission is absent -- relay then uses token/open mode.
+          oidc=""
+          if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
+            oidc=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+              "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=issue2pr-mail-relay" \
+              | jq -r '.value // empty')
+          fi
           payload=$(jq -nc \
             --arg to "$to" \
             --arg repo '${{ github.repository }}' \
@@ -98,6 +108,7 @@ jobs:
             '{to:$to, repo:$repo, outcome:$outcome, sha:$sha, changed:$changed}')
           curl -sS -X POST "$RELAY_URL" \
             -H "Content-Type: application/json" \
+            ${oidc:+-H "Authorization: Bearer $oidc"} \
             ${RELAY_TOKEN:+-H "X-Relay-Token: $RELAY_TOKEN"} \
             --data "$payload" && echo "relay notified ($to)" \
             || echo "relay notify failed (non-fatal)"
