@@ -15,8 +15,6 @@ on:
     secrets:
       GROQ_API_KEY:       { required: true }
       OPENROUTER_API_KEY: { required: false }
-      MAIL_USERNAME:      { required: false }
-      MAIL_PASSWORD:      { required: false }
 
 permissions:
   contents: write
@@ -62,30 +60,27 @@ jobs:
           echo "changed=$changed" >> "$GITHUB_OUTPUT"
           git diff --stat ${{ github.sha }} HEAD > diffstat.txt || true
 
-      - name: Email the pusher
-        if: always() && env.MAIL_USERNAME != ''
-        uses: dawidd6/action-send-mail@v3
+      - name: Email the pusher via relay
+        if: always()
         env:
-          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
-        with:
-          server_address: smtp.gmail.com
-          server_port: 465
-          secure: true
-          username: ${{ secrets.MAIL_USERNAME }}
-          password: ${{ secrets.MAIL_PASSWORD }}
-          from: Issue2PR Agent <${{ secrets.MAIL_USERNAME }}>
-          to: ${{ github.event.head_commit.author.email }}
-          subject: "Agent run on ${{ github.repository }} - ${{ steps.agent.outcome }}"
-          body: |
-            Repo:    ${{ github.repository }}
-            Commit:  ${{ github.sha }}
-            Pusher:  ${{ github.event.head_commit.author.name }}
-            Outcome: ${{ steps.agent.outcome }}   (success = finished, failure = hit a time/budget limit)
-            Files changed by agent: ${{ steps.report.outputs.changed }}
-
-            The agent's summary is in run.log; per-file changes in diffstat.txt.
-            If files were changed, a pull request was opened for review.
-          attachments: run.log,diffstat.txt
+          # Central mail relay (Vercel). Sender creds live on the relay, so
+          # caller repos need NO mail secrets. Change only if you redeploy the
+          # relay under a different URL.
+          RELAY_URL: https://issue2pr-mail-relay.vercel.app/api/send
+        run: |
+          to='${{ github.event.head_commit.author.email }}'
+          if [ -z "$to" ]; then echo "no pusher email; skipping notify"; exit 0; fi
+          payload=$(jq -nc \
+            --arg to "$to" \
+            --arg repo '${{ github.repository }}' \
+            --arg outcome '${{ steps.agent.outcome }}' \
+            --arg sha '${{ github.sha }}' \
+            --arg changed '${{ steps.report.outputs.changed }}' \
+            '{to:$to, repo:$repo, outcome:$outcome, sha:$sha, changed:$changed}')
+          curl -sS -X POST "$RELAY_URL" \
+            -H "Content-Type: application/json" \
+            --data "$payload" && echo "relay notified" \
+            || echo "relay notify failed (non-fatal)"
 
       - name: Open PR with the agent's changes
         if: steps.report.outputs.changed != '0'
