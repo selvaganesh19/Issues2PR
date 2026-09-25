@@ -20,6 +20,9 @@ on:
     secrets:
       GROQ_API_KEY:       { required: true }
       OPENROUTER_API_KEY: { required: false }
+      # Optional. Set only if the relay enforces RELAY_TOKEN. When the relay has
+      # no RELAY_TOKEN configured, leave this unset and the relay stays open.
+      RELAY_TOKEN:        { required: false }
 
 permissions:
   contents: write
@@ -74,6 +77,7 @@ jobs:
           RELAY_URL: https://issue2pr-mail-relay.vercel.app/api/send
           NOTIFY_EMAIL: ${{ inputs.notify_email }}
           COMMIT_EMAIL: ${{ github.event.head_commit.author.email }}
+          RELAY_TOKEN: ${{ secrets.RELAY_TOKEN }}
         run: |
           # Prefer the caller-provided address; fall back to the pusher's commit
           # email. GitHub privacy noreply addresses cannot receive mail, so skip
@@ -94,6 +98,7 @@ jobs:
             '{to:$to, repo:$repo, outcome:$outcome, sha:$sha, changed:$changed}')
           curl -sS -X POST "$RELAY_URL" \
             -H "Content-Type: application/json" \
+            ${RELAY_TOKEN:+-H "X-Relay-Token: $RELAY_TOKEN"} \
             --data "$payload" && echo "relay notified ($to)" \
             || echo "relay notify failed (non-fatal)"
 
