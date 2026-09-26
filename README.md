@@ -1,5 +1,18 @@
 # Issue2PR
 
+> **Issue → Agent → Tests → Self-Repair → PR**
+>
+> An autonomous software-engineering agent that turns a GitHub issue into a tested pull request.
+
+### 🎥 Demo
+
+_Demo video coming soon — a 2–3 min walkthrough: issue → repo analysis → LLM tool calls → code edit → pytest → self-repair → PR._
+
+<!-- DEMO VIDEO PLACEHOLDER — replace this block with the walkthrough.
+     GitHub renders an uploaded .mp4 inline (drag it into an issue/PR to get a
+     user-images.githubusercontent.com URL), or embed a YouTube/Loom thumbnail link:
+     [![Watch the demo](docs/demo-thumb.png)](https://youtu.be/VIDEO_ID) -->
+
 Autonomous **GitHub issue -> tested pull request** agent.
 
 Issue2PR reads a GitHub issue, explores a repository in a sandboxed workspace,
@@ -183,6 +196,35 @@ docker compose -f docker-compose.prod.yml up --build -d
 4. **Database persistence:** after `initdb`, run the API and confirm `GET /runs`
    returns stored runs (empty list until the worker records one).
 5. **Eval suite:** `python -m evals.run --suite smoke`.
+
+---
+
+## Evaluation
+
+Real runs, not estimates. The harness (`evals/run.py`) copies each task's repo
+into a fresh temp dir, runs the agent, then **independently** verifies the fix by
+running `pytest` in the copy — so "solved" means the tests actually pass,
+regardless of whether the model remembered to call `finish`.
+
+| Suite | Tasks | Solved | Success | Avg steps | Avg cost/run | Model |
+| --- | --- | --- | --- | --- | --- | --- |
+| `smoke` | 1 | 1 | 100% | 8 | ~$0.004 | Groq `openai/gpt-oss-120b` |
+
+Latest `smoke` run (2 consecutive runs, both solved; wall-clock 41.8 s then 8.3 s
+— the first call pays one-time model warmup):
+
+```
+task                     resolved  steps   cost($)  time(s)
+task_add_bug             yes           8    0.0039      8.3
+TOTAL                    1/1           8    0.0039      8.3
+```
+
+**Reproduce:** put an LLM key in `.env`, then `python -m evals.run --suite smoke`.
+Add tasks under `evals/suites/<suite>/<task>/` (a `task.json` + a buggy repo) and
+the table grows with them.
+
+_Planned as the suite expands: first-attempt vs. self-repair success, token usage,
+and patch-acceptance rate across larger benchmarks._
 
 ---
 
